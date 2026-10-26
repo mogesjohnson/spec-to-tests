@@ -1,8 +1,21 @@
 {
-  "name": "your-repo",
-  "private": true,
+  "name": "spec-to-tests",
+  "version": "0.1.0",
+  "description": "Turn a markdown spec or ADR into failing Vitest acceptance tests before any code exists.",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "spec-to-tests": "dist/cli.js" },
+  "files": ["dist"],
+  "engines": { "node": ">=22" },
   "scripts": {
     "prepare": "node scripts/setup-hooks.mjs",
-    "test": "node scripts/test/run.mjs"
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   }
 }
