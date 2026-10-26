@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 // spec-to-tests <spec.md> [--out dir] [--llm] [--force]
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { FileExistsError, generate } from './generate.js';
 
@@ -35,4 +37,13 @@ export function main(argv: string[]): number {
   }
 }
 
-process.exitCode = main(process.argv.slice(2));
+/** True when run as the CLI (also through npm's bin symlink), false when imported. */
+export function isEntry(argv1 = process.argv[1], self = fileURLToPath(import.meta.url)): boolean {
+  try {
+    return !!argv1 && realpathSync(argv1) === realpathSync(self);
+  } catch {
+    return false;
+  }
+}
+
+if (isEntry()) process.exitCode = main(process.argv.slice(2));
