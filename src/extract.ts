@@ -36,8 +36,13 @@ export function dedupeKey(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+const FENCE = /^\s*(```|~~~)/;
+
 export function extractTitle(markdown: string, fallback = 'Spec'): string {
+  let inFence = false;
   for (const line of markdown.split(/\r?\n/)) {
+    if (FENCE.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
     const m = HEADING.exec(line);
     if (m && m[1] === '#') return cleanText(m[2]);
   }
@@ -48,8 +53,33 @@ export function formatId(n: number): string {
   return `AC-${String(n).padStart(2, '0')}`;
 }
 
+/**
+ * Joins each list item with its wrapped (indented) continuation lines, so an item that spans
+ * several source lines is read as one. `line` is the item's first source line, 1-based.
+ */
+export function logicalLines(markdown: string): { text: string; line: number }[] {
+  const out: { text: string; line: number }[] = [];
+  let inFence = false;
+  let item: { text: string; line: number } | undefined;
+  markdown.split(/\r?\n/).forEach((text, i) => {
+    const isFence = FENCE.test(text);
+    if (isFence || inFence) {
+      if (isFence) inFence = !inFence;
+      item = undefined;
+      out.push({ text, line: i + 1 });
+      return;
+    }
+    const wrapped = /^\s+\S/.test(text) && !BULLET.test(text) && !HEADING.test(text) && !/^\s*(\||>)/.test(text);
+    if (item && wrapped) { item.text += ` ${text.trim()}`; return; }
+    const entry = { text, line: i + 1 };
+    item = BULLET.test(text) ? entry : undefined;
+    out.push(entry);
+  });
+  return out;
+}
+
 export function extractCriteria(markdown: string, fallbackTitle = 'Spec'): ExtractResult {
-  const lines = markdown.split(/\r?\n/);
+  const lines = logicalLines(markdown);
   const seen = new Set<string>();
   const found: Omit<Criterion, 'id'>[] = [];
   let inFence = false;
@@ -63,8 +93,8 @@ export function extractCriteria(markdown: string, fallbackTitle = 'Spec'): Extra
     found.push({ text: t, source, line, vague: isVague(t) });
   };
 
-  lines.forEach((line, i) => {
-    if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; return; }
+  lines.forEach(({ text: line, line: n }) => {
+    if (FENCE.test(line)) { inFence = !inFence; return; }
     if (inFence) return;
     const h = HEADING.exec(line);
     if (h) {
@@ -74,11 +104,11 @@ export function extractCriteria(markdown: string, fallbackTitle = 'Spec'): Extra
       return;
     }
     const c = CHECKLIST.exec(line);
-    if (c) return add(c[1], 'checklist', i + 1);
+    if (c) return add(c[1], 'checklist', n);
     const b = BULLET.exec(line);
-    if (b && acLevel) return add(b[1], 'section', i + 1);
+    if (b && acLevel) return add(b[1], 'section', n);
     if (KEYWORD.test(line) && line.trim() && !/^\s*(\||>)/.test(line)) {
-      add(b ? b[1] : line, 'keyword', i + 1);
+      add(b ? b[1] : line, 'keyword', n);
     }
   });
 
