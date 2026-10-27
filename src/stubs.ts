@@ -7,14 +7,20 @@ export interface StubSymbol {
 
 const IDENT = '[A-Za-z_$][\\w$]*';
 const INLINE = /`([^`\n]+)`/g;
-const FN_CALL = new RegExp(`^(?:${IDENT}\\.)*(${IDENT})\\s*\\([^)]*\\)$`);
+const FN_CALL = new RegExp(`^((?:${IDENT}\\.)*)(${IDENT})\\s*\\([^)]*\\)$`);
 const DECL = new RegExp(`^(?:export\\s+)?(?:declare\\s+)?(?:async\\s+)?(function|interface|class|type)\\s+(${IDENT})`);
+// Names a stub must never take: they are syntax errors or clash with the vitest imports in the test file.
+const RESERVED = new Set(('break case catch class const continue debugger default delete do else enum export extends false finally for ' +
+  'function if import in instanceof new null return super switch this throw true try typeof var void while with yield let static ' +
+  'await async of implements interface package private protected public arguments eval undefined').split(' '));
+const VITEST_NAMES = new Set(['describe', 'it', 'test', 'expect', 'vi', 'suite', 'beforeAll', 'beforeEach', 'afterAll', 'afterEach']);
+const usable = (name: string) => !RESERVED.has(name) && !VITEST_NAMES.has(name);
 const API_HEADING = /^#{1,6}\s+(interface|api)\b/i;
 
 export function findSymbols(markdown: string): StubSymbol[] {
   const out = new Map<string, StubSymbol>();
   const add = (name: string, kind: StubSymbol['kind']) => {
-    if (!out.has(name)) out.set(name, { name, kind });
+    if (usable(name) && !out.has(name)) out.set(name, { name, kind });
   };
   const lines = markdown.split(/\r?\n/);
   let inApi = false;
@@ -39,7 +45,8 @@ export function findSymbols(markdown: string): StubSymbol[] {
       if (d) add(d[2], d[1] as StubSymbol['kind']);
       else {
         const f = FN_CALL.exec(code);
-        if (f) add(f[1], 'function');
+        // `it.todo(...)`, `vi.fn()` and the like call vitest, not code the spec asks for.
+        if (f && !VITEST_NAMES.has(f[1].split('.')[0])) add(f[2], 'function');
       }
     }
   }
