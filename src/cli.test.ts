@@ -102,8 +102,15 @@ describe('isEntry', () => {
     expect(isEntry(undefined, self)).toBe(false);
     expect(isEntry(self, self)).toBe(true);
     const link = join(dir, 'spec-to-tests');
-    symlinkSync(self, link);
-    expect(isEntry(link, self)).toBe(true);
+    let linked = true;
+    try {
+      symlinkSync(self, link);
+    } catch (e) {
+      // Windows without Developer Mode or admin cannot create symlinks.
+      if ((e as NodeJS.ErrnoException).code !== 'EPERM') throw e;
+      linked = false;
+    }
+    if (linked) expect(isEntry(link, self)).toBe(true);
     expect(isEntry(join(dir, 'nope'), self)).toBe(false);
   });
 });

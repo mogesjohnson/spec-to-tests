@@ -66,6 +66,21 @@ describe('extractCriteria', () => {
     const r = extractCriteria('# T\n\n### Requirements\n\n- one\n\n## AC\n\n* two\n\n## Other\n\n- three\n');
     expect(r.criteria.map((c) => c.text)).toEqual(['one', 'two']);
   });
+
+  it('joins a list item with its wrapped continuation lines', () => {
+    const md = '# T\n\n## Acceptance criteria\n\n- [ ] Writes the checklist, plus a\n      section for vague criteria.\n'
+      + '- Second item\n  wraps too.\n  - nested item\n\nNot part of it.\n';
+    expect(extractCriteria(md).criteria.map((c) => [c.text, c.line])).toEqual([
+      ['Writes the checklist, plus a section for vague criteria.', 5],
+      ['Second item wraps too.', 7],
+      ['nested item', 9],
+    ]);
+  });
+
+  it('finds a keyword on a wrapped line of a bullet outside AC sections', () => {
+    const r = extractCriteria('# T\n\n- The API\n  must reject empty input.\n');
+    expect(r.criteria.map((c) => c.text)).toEqual(['The API must reject empty input.']);
+  });
 });
 
 describe('helpers', () => {
@@ -77,5 +92,8 @@ describe('helpers', () => {
   });
   it('extractTitle falls back when there is no H1', () => {
     expect(extractTitle('## h2 only', 'fallback')).toBe('fallback');
+  });
+  it('extractTitle ignores # comments inside code fences', () => {
+    expect(extractTitle('```bash\n# install deps\nnpm ci\n```\n', 'fallback')).toBe('fallback');
   });
 });
