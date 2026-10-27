@@ -33,6 +33,16 @@ describe('findSymbols', () => {
   });
 });
 
+describe('findSymbols reserved names', () => {
+  it('skips JS keywords, vitest names and calls on vitest globals', () => {
+    const md = '## API\n\n- `describe()` and `it()` are used, plus `typeof(x)` and `import()`.\n- `it.todo(\'AC-01 x\')`, `vi.fn()`, `parser.parse(x)` and `real()`.\n';
+    expect(findSymbols(md)).toEqual([
+      { name: 'parse', kind: 'function' },
+      { name: 'real', kind: 'function' },
+    ]);
+  });
+});
+
 describe('generate', () => {
   const dir = mkdtempSync(join(tmpdir(), 'stt-'));
   const spec = join(dir, 'parser.md');
